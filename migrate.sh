@@ -120,16 +120,23 @@ run_verify() {
       log RED "$name: apps/$name/ MISSING"
     fi
     
-    # Count branches
+    # Count branches - check if default branch was merged (look for integration commit)
+    merged_default=0
+    git log --oneline --grep="Integrate $name" -1 &>/dev/null && merged_default=1
+    
     if [[ "$USE_BRANCH_PREFIX" == true ]]; then
-      local_count=$(git branch | grep -c "^ *${name}/" 2>/dev/null || echo 0)
+      prefixed_count=$(git branch 2>/dev/null | grep -c "^ *${name}/" || true)
+      local_count=$((prefixed_count + merged_default))
     else
-      local_count=$(git branch | wc -l)
+      local_count=$(git branch 2>/dev/null | wc -l)
     fi
     remote_count=$(git ls-remote --heads "$url" 2>/dev/null | wc -l)
+    local_count=$(echo "$local_count" | tr -d '[:space:]')
+    remote_count=$(echo "$remote_count" | tr -d '[:space:]')
+    : "${local_count:=0}" "${remote_count:=0}"
     
-    if [[ $local_count -ge $remote_count ]]; then
-      log GREEN "$name: $local_count/$remote_count branches"
+    if [[ "$local_count" -ge "$remote_count" ]]; then
+      log GREEN "$name: $local_count/$remote_count branches (default merged)"
     else
       log YELLOW "$name: $local_count/$remote_count branches (missing $((remote_count - local_count)))"
     fi
